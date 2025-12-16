@@ -1,0 +1,96 @@
+# =============================================================================
+# BRAID Manager - Briefcase Configuration
+# =============================================================================
+# Build cross-platform desktop app with: briefcase build
+# Run in dev mode with: briefcase dev
+# Create installer with: briefcase package
+# =============================================================================
+
+[project]
+name = "braidmanager"
+version = "1.0.0"
+description = "Desktop application for managing BRAID logs (Budget, Risks, Action Items, Issues, Decisions)"
+requires-python = ">=3.10"
+license.text = "MIT"
+authors = [
+    {name = "Centric Consulting"}
+]
+keywords = ["project-management", "raid-log", "desktop-app"]
+
+dependencies = [
+    "PySide6>=6.6.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "briefcase>=0.3.17",
+    "pytest>=7.0",
+]
+
+# =============================================================================
+# Briefcase App Configuration
+# =============================================================================
+
+[tool.briefcase]
+project_name = "BRAID Manager"
+bundle = "com.centricconsulting.braidmanager"
+version = "1.0.0"
+url = "https://centricconsulting.com"
+license = "MIT"
+author = "Centric Consulting"
+author_email = "info@centricconsulting.com"
+
+[tool.briefcase.app.braidmanager]
+formal_name = "BRAID Manager"
+description = "Desktop application for managing BRAID logs"
+long_description = """BRAID Manager is a desktop application for tracking Budget, Risks,
+Action Items, Issues, and Decisions for project management."""
+icon = "resources/AppIcon"
+sources = ["braidmanager", "src"]
+test_sources = ["tests"]
+
+# =============================================================================
+# macOS Configuration
+# =============================================================================
+
+[tool.briefcase.app.braidmanager.macOS]
+requires = [
+    "PySide6-Essentials>=6.6.0",  # Smaller package without WebEngine
+]
+# Use system Python framework
+universal_build = true
+
+[tool.briefcase.app.braidmanager.macOS.app]
+# Build a .app bundle
+
+[tool.briefcase.app.braidmanager.macOS.dmg]
+# Build a .dmg installer (optional - run: briefcase package macOS dmg)
+
+# =============================================================================
+# Windows Configuration
+# =============================================================================
+
+[tool.briefcase.app.braidmanager.windows]
+requires = [
+    "PySide6-Essentials>=6.6.0",
+]
+
+[tool.briefcase.app.braidmanager.windows.app]
+# Build standalone Windows app
+
+[tool.briefcase.app.braidmanager.windows.msi]
+# Build .msi installer (optional - run: briefcase package windows msi)
+
+# =============================================================================
+# Linux Configuration (for completeness)
+# =============================================================================
+
+[tool.briefcase.app.braidmanager.linux]
+requires = [
+    "PySide6-Essentials>=6.6.0",
+]
+system_requires = []
+
+[tool.briefcase.app.braidmanager.linux.appimage]
+# Build AppImage

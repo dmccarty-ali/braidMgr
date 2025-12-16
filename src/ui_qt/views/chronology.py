@@ -123,29 +123,27 @@ def add_shadow(widget, blur=15, offset=2, color=QColor(0, 0, 0, 25)):
 
 
 def urls_to_links(text: str) -> str:
-    """Convert bare URLs in text to HTML hyperlinks with friendly display text."""
-    # Pattern matches URLs with or without http/https prefix
-    # Handles: https://..., http://..., and domain.com/... patterns
+    """Convert bare URLs in text to HTML hyperlinks with domain name as display text."""
+    from urllib.parse import urlparse, unquote
 
     def make_link(match):
         url = match.group(0)
         # Add https:// if no protocol specified
         href = url if url.startswith(('http://', 'https://')) else f'https://{url}'
 
-        # Extract full domain for display text (e.g., "my.sharepoint.com" -> "my.sharepoint link")
-        # Remove protocol if present
-        domain_part = re.sub(r'^https?://', '', url)
-        # Get just the domain (first part before /)
-        domain = domain_part.split('/')[0]
-        # Remove TLD (.com, .org, etc.) for cleaner display
-        parts = domain.split('.')
-        # Keep all parts except the TLD
-        tlds = {'com', 'org', 'net', 'edu', 'gov', 'io', 'co', 'app', 'dev'}
-        display_parts = [p for p in parts if p.lower() not in tlds]
-        display_name = '.'.join(display_parts) if display_parts else parts[0]
+        # Extract domain using proper URL parsing
+        try:
+            # Decode any URL-encoded characters first
+            decoded_url = unquote(href)
+            parsed = urlparse(decoded_url)
+            domain = parsed.netloc or parsed.path.split('/')[0]
+        except Exception:
+            # Fallback: simple extraction
+            domain_part = re.sub(r'^https?://', '', url)
+            domain = domain_part.split('/')[0].split('%')[0]
 
-        display_text = f"{display_name} link"
-        return f'<a href="{href}" style="color: #0d6efd;">{display_text}</a>'
+        # Use domain as display text (e.g., "teams.microsoft.com", "sharepoint.com")
+        return f'<a href="{href}" style="color: #0d6efd;">{domain}</a>'
 
     # Match URLs with protocol OR common domain patterns without protocol
     url_pattern = r'https?://[^\s<>\[\]]+|(?:[a-zA-Z0-9-]+\.)+(?:com|org|net|edu|gov|io|co|app|dev|sharepoint)[^\s<>\[\]]*'

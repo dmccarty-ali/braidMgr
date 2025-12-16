@@ -6,11 +6,13 @@ Styled to match the HTML project viewer.
 """
 
 import sys
+import shutil
 from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QStackedWidget, QScrollArea,
-    QSizePolicy, QGraphicsDropShadowEffect
+    QSizePolicy, QGraphicsDropShadowEffect, QFileDialog, QInputDialog,
+    QMessageBox
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QColor, QIcon
@@ -22,6 +24,8 @@ from src.core.yaml_store import YamlStore
 from src.core.indicators import update_all_indicators
 from src.core.budget import BudgetCalculator
 from src.core.models import ProjectData, BudgetData
+from src.core.paths import get_project_data_path, ensure_app_directories, is_first_run
+from src.core.templates import create_new_project
 from src.ui_qt.styles import MAIN_STYLESHEET, COLORS
 from src.ui_qt.views.dashboard import DashboardView
 from src.ui_qt.dialogs import EditItemDialog
@@ -150,6 +154,45 @@ class RAIDManagerApp(QMainWindow):
         reload_btn.clicked.connect(self._reload_data)
         layout.addWidget(reload_btn)
 
+        # Project management separator
+        sep3 = QFrame()
+        sep3.setObjectName("separator")
+        sep3.setFixedHeight(1)
+        layout.addWidget(sep3)
+
+        # Project label
+        project_label = QLabel("PROJECT")
+        project_label.setObjectName("sidebar_section_label")
+        layout.addWidget(project_label)
+
+        # New Project button
+        new_btn = QPushButton("  ➕  New Project")
+        new_btn.setObjectName("action_button")
+        new_btn.setCursor(Qt.PointingHandCursor)
+        new_btn.clicked.connect(self._new_project)
+        layout.addWidget(new_btn)
+
+        # Import BRAID button
+        import_braid_btn = QPushButton("  📥  Import BRAID")
+        import_braid_btn.setObjectName("action_button")
+        import_braid_btn.setCursor(Qt.PointingHandCursor)
+        import_braid_btn.clicked.connect(self._import_braid)
+        layout.addWidget(import_braid_btn)
+
+        # Import Budget button
+        import_budget_btn = QPushButton("  📥  Import Budget")
+        import_budget_btn.setObjectName("action_button")
+        import_budget_btn.setCursor(Qt.PointingHandCursor)
+        import_budget_btn.clicked.connect(self._import_budget)
+        layout.addWidget(import_budget_btn)
+
+        # Export button
+        export_btn = QPushButton("  📤  Export")
+        export_btn.setObjectName("action_button")
+        export_btn.setCursor(Qt.PointingHandCursor)
+        export_btn.clicked.connect(self._export_project)
+        layout.addWidget(export_btn)
+
         # Status
         self.status_label = QLabel("No data loaded")
         self.status_label.setObjectName("status_label")
@@ -175,9 +218,15 @@ class RAIDManagerApp(QMainWindow):
         parent_layout.addWidget(content, 1)
 
     def _find_and_load_data(self):
-        """Find and load RAID and Budget data"""
+        """Find and load RAID and Budget data from platform-appropriate location"""
+        # Priority order for finding data:
+        # 1. Platform app data directory (for packaged app)
+        # 2. Relative 'data' folder (for development)
+        # 3. Current working directory (fallback)
+
         candidates = [
-            Path(__file__).parent.parent.parent.parent / 'data',
+            get_project_data_path(),  # Platform-specific app data
+            Path(__file__).parent.parent.parent.parent / 'data',  # Dev mode
             Path.cwd() / 'data',
             Path.cwd(),
         ]
@@ -189,11 +238,32 @@ class RAIDManagerApp(QMainWindow):
                     self.data_dir = candidate
                     break
 
+        # If no data found, set up first-run with new project
         if not self.data_dir:
-            self.status_label.setText("No data found")
+            self._handle_first_run()
             return
 
         self._load_data()
+
+    def _handle_first_run(self):
+        """Handle first run - create app directories and starter project"""
+        ensure_app_directories()
+        self.data_dir = get_project_data_path()
+
+        # Create a new starter project
+        new_project = create_new_project(
+            project_name="My Project",
+            client_name=None
+        )
+
+        # Save the starter project
+        store = YamlStore(self.data_dir)
+        raid_file = self.data_dir / "BRAID-Log-MyProject.yaml"
+        store.save_raid_log(raid_file, new_project)
+
+        # Load the newly created project
+        self._load_data()
+        self.status_label.setText("New project created")
 
     def _load_data(self):
         """Load data from YAML files"""
@@ -216,6 +286,7 @@ class RAIDManagerApp(QMainWindow):
             item_count = len(self.project_data.items)
             open_count = len(self.project_data.get_open_items())
             self.status_label.setText(f"{item_count} items ({open_count} open)")
+            self._update_window_title()
 
     def _reload_data(self):
         """Reload data from files"""
@@ -341,6 +412,202 @@ class RAIDManagerApp(QMainWindow):
 
         # Refresh current view
         self._refresh_current_view()
+
+    # =========================================================================
+    # Project Management Actions
+    # =========================================================================
+
+    def _new_project(self):
+        """Create a new project, replacing the current one"""
+        # Get project name from user
+        name, ok = QInputDialog.getText(
+            self,
+            "New Project",
+            "Project name:",
+            text="My Project"
+        )
+        if not ok or not name.strip():
+            return
+
+        name = name.strip()
+
+        # Confirm replacement
+        if self.project_data:
+            reply = QMessageBox.question(
+                self,
+                "Replace Current Project?",
+                f"This will replace the current project with a new one named '{name}'.\n\n"
+                "The current project will be deleted. Continue?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
+        # Ensure app directories exist
+        ensure_app_directories()
+        self.data_dir = get_project_data_path()
+
+        # Remove existing BRAID log files
+        for f in self.data_dir.glob('BRAID-Log-*.yaml'):
+            f.unlink()
+        for f in self.data_dir.glob('RAID-Log-*.yaml'):
+            f.unlink()
+
+        # Create new project
+        new_project = create_new_project(project_name=name)
+
+        # Save it
+        safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = safe_name.replace(' ', '-')
+        store = YamlStore(self.data_dir)
+        raid_file = self.data_dir / f"BRAID-Log-{safe_name}.yaml"
+        store.save_raid_log(raid_file, new_project)
+
+        # Clear views cache so they rebuild with new data
+        self.views.clear()
+        while self.view_stack.count():
+            widget = self.view_stack.widget(0)
+            self.view_stack.removeWidget(widget)
+
+        # Reload
+        self._load_data()
+        self._update_window_title()
+        self.show_view("dashboard")
+        self.status_label.setText("New project created")
+
+    def _import_braid(self):
+        """Import a BRAID log file, replacing the current one"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import BRAID Log",
+            str(Path.home()),
+            "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        source = Path(file_path)
+        if not source.exists():
+            QMessageBox.warning(self, "Import Failed", "File not found.")
+            return
+
+        # Confirm replacement
+        if self.project_data:
+            reply = QMessageBox.question(
+                self,
+                "Replace Current Project?",
+                f"This will replace the current project with the imported file.\n\n"
+                "The current project will be deleted. Continue?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
+        # Ensure app directories exist
+        ensure_app_directories()
+        self.data_dir = get_project_data_path()
+
+        # Remove existing BRAID log files
+        for f in self.data_dir.glob('BRAID-Log-*.yaml'):
+            f.unlink()
+        for f in self.data_dir.glob('RAID-Log-*.yaml'):
+            f.unlink()
+
+        # Copy file to app data directory
+        dest = self.data_dir / source.name
+        shutil.copy2(source, dest)
+
+        # Clear views cache
+        self.views.clear()
+        while self.view_stack.count():
+            widget = self.view_stack.widget(0)
+            self.view_stack.removeWidget(widget)
+
+        # Reload
+        self._load_data()
+        self._update_window_title()
+        self.show_view("dashboard")
+        self.status_label.setText("BRAID log imported")
+
+    def _import_budget(self):
+        """Import a Budget file"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Budget",
+            str(Path.home()),
+            "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        source = Path(file_path)
+        if not source.exists():
+            QMessageBox.warning(self, "Import Failed", "File not found.")
+            return
+
+        # Ensure app directories exist
+        ensure_app_directories()
+        self.data_dir = get_project_data_path()
+
+        # Remove existing budget files
+        for f in self.data_dir.glob('Budget-*.yaml'):
+            f.unlink()
+
+        # Copy file to app data directory
+        dest = self.data_dir / source.name
+        shutil.copy2(source, dest)
+
+        # Reload data
+        self._load_data()
+        self._refresh_current_view()
+        self.status_label.setText("Budget imported")
+
+    def _export_project(self):
+        """Export project files to Downloads folder"""
+        if not self.data_dir:
+            QMessageBox.warning(self, "Export Failed", "No project loaded.")
+            return
+
+        downloads = Path.home() / "Downloads"
+        if not downloads.exists():
+            downloads.mkdir(parents=True)
+
+        exported = []
+
+        # Export BRAID log files
+        for f in self.data_dir.glob('BRAID-Log-*.yaml'):
+            dest = downloads / f.name
+            shutil.copy2(f, dest)
+            exported.append(f.name)
+
+        for f in self.data_dir.glob('RAID-Log-*.yaml'):
+            dest = downloads / f.name
+            shutil.copy2(f, dest)
+            exported.append(f.name)
+
+        # Export budget files
+        for f in self.data_dir.glob('Budget-*.yaml'):
+            dest = downloads / f.name
+            shutil.copy2(f, dest)
+            exported.append(f.name)
+
+        if exported:
+            QMessageBox.information(
+                self,
+                "Export Complete",
+                f"Exported to Downloads:\n\n" + "\n".join(exported)
+            )
+        else:
+            QMessageBox.warning(self, "Export Failed", "No files to export.")
+
+    def _update_window_title(self):
+        """Update window title with project name"""
+        if self.project_data and self.project_data.metadata.project_name:
+            self.setWindowTitle(f"BRAID Log - {self.project_data.metadata.project_name}")
+        else:
+            self.setWindowTitle("BRAID Log")
 
 
 def main():
