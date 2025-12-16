@@ -7,8 +7,8 @@
 # - Git credentials (local config, SSH authentication)
 # - Python virtual environment
 #
-# Run: chmod +x setup_dev_environment.sh
-# Run: ./setup_dev_environment.sh
+# Run: chmod +x setup_dev_env.sh
+# Run: ./setup_dev_env.sh
 #
 # =============================================================================
 
@@ -55,11 +55,13 @@ read -p "Configure SSH authentication for git? (y/n): " SETUP_SSH
 
 if [[ "$SETUP_SSH" == "y" ]]; then
     echo ""
+    # Using personal GitHub account key for BRAID Manager
     SSH_KEY_PATH="$HOME/.ssh/id_ed25519_braidmgr"
     SSH_KEY_EMAIL="don.mccarty@gmail.com"
 
     if [[ -f "$SSH_KEY_PATH" ]]; then
         echo "✓ SSH key already exists at $SSH_KEY_PATH"
+        echo "  (Using existing key - will not overwrite)"
     else
         echo "Generating SSH key..."
         echo "Command: ssh-keygen -t ed25519 -C \"$SSH_KEY_EMAIL\" -f \"$SSH_KEY_PATH\" -N \"\""
@@ -78,49 +80,41 @@ if [[ "$SETUP_SSH" == "y" ]]; then
     echo "3. After adding to GitHub, press Enter to continue..."
     read
 
-    # Add key to SSH agent
-    echo "Adding key to SSH agent..."
-    eval "$(ssh-agent -s)" >/dev/null 2>&1 || true
+    # Add key to SSH agent (clear cached keys first to avoid auth conflicts)
+    echo "Configuring SSH agent..."
+    ssh-add -D 2>/dev/null || true  # Clear all cached keys
     ssh-add "$SSH_KEY_PATH" 2>/dev/null || true
 
-    # Update SSH config for braidmgr-specific host
-    SSH_CONFIG="$HOME/.ssh/config"
-    if ! grep -q "Host github-braidmgr" "$SSH_CONFIG" 2>/dev/null; then
-        echo "" >> "$SSH_CONFIG"
-        echo "# BRAID Manager GitHub SSH Configuration" >> "$SSH_CONFIG"
-        echo "Host github-braidmgr" >> "$SSH_CONFIG"
-        echo "    HostName github.com" >> "$SSH_CONFIG"
-        echo "    User git" >> "$SSH_CONFIG"
-        echo "    IdentityFile $SSH_KEY_PATH" >> "$SSH_CONFIG"
-        echo "    AddKeysToAgent yes" >> "$SSH_CONFIG"
-        echo "✓ Updated ~/.ssh/config with github-braidmgr host"
-    fi
+    # Configure this repo to use the project-specific key
+    git config --local core.sshCommand "ssh -i $SSH_KEY_PATH"
+    echo "✓ Configured repo to use $SSH_KEY_PATH"
 
     # Test connection
     echo ""
     echo "Testing GitHub connection..."
-    if ssh -T git@github-braidmgr 2>&1 | grep -q "successfully authenticated"; then
+    if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
         echo "✓ GitHub SSH connection successful"
     else
-        echo "⚠ GitHub connection test inconclusive - verify manually with:"
-        echo "  ssh -T git@github-braidmgr"
+        echo "⚠ GitHub connection test inconclusive - verify manually"
     fi
 
-    # Update git remote to SSH with custom host
+    # Update git remote to SSH
     CURRENT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
-    GITHUB_ORG="donmccarty"
-    REPO_NAME="braidMgr"
+    if [[ "$CURRENT_REMOTE" =~ ^https://github.com/ ]]; then
+        GITHUB_ORG="donmccarty"
+        REPO_NAME="braidMgr"
 
-    echo ""
-    echo "Updating remote to use SSH with project-specific key..."
-    echo "GitHub user: $GITHUB_ORG"
-    echo "Repository: $REPO_NAME"
-    read -p "Is this correct? (y/n): " CONFIRM_REMOTE
+        echo ""
+        echo "Current remote uses HTTPS. Converting to SSH..."
+        echo "GitHub org/user: $GITHUB_ORG"
+        echo "Repository name: $REPO_NAME"
+        read -p "Is this correct? (y/n): " CONFIRM_REMOTE
 
-    if [[ "$CONFIRM_REMOTE" == "y" ]]; then
-        # Use the custom host alias so it picks up the right SSH key
-        git remote set-url origin "git@github-braidmgr:${GITHUB_ORG}/${REPO_NAME}.git"
-        echo "✓ Remote updated to SSH (git@github-braidmgr:${GITHUB_ORG}/${REPO_NAME}.git)"
+        if [[ "$CONFIRM_REMOTE" == "y" ]]; then
+            git remote set-url origin "git@github.com:${GITHUB_ORG}/${REPO_NAME}.git"
+            git config --local core.sshCommand "ssh -i $SSH_KEY_PATH"
+            echo "✓ Remote updated to SSH"
+        fi
     fi
 fi
 
@@ -145,16 +139,6 @@ fi
 if [[ -d ".venv" ]]; then
     echo ""
     echo "To activate: source .venv/bin/activate"
-
-    # Install dependencies if requirements.txt exists
-    if [[ -f "requirements.txt" ]]; then
-        read -p "Install dependencies from requirements.txt? (y/n): " INSTALL_DEPS
-        if [[ "$INSTALL_DEPS" == "y" ]]; then
-            source .venv/bin/activate
-            pip install -r requirements.txt
-            echo "✓ Dependencies installed"
-        fi
-    fi
 fi
 
 # =============================================================================
@@ -167,10 +151,9 @@ echo "==========================================="
 echo ""
 echo "Next steps:"
 echo "1. Activate environment: source .venv/bin/activate"
-echo "2. Install dependencies (if not done): pip install -r requirements.txt"
-echo "3. Run the app: python -m src.ui_qt.app"
+echo "2. Install dependencies: pip install -r requirements.txt"
+echo "3. Run the app: python -m raid_manager.src.main"
 echo "4. Test git push: git push"
 echo ""
-echo "Current git configuration:"
-git config --local --list | grep -E "^user\.|^remote\.|^core\.ssh" || true
+echo "See ARCHITECTURE.md for project documentation"
 echo ""

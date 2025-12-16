@@ -9,7 +9,7 @@ from typing import Optional, List
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QScrollArea, QGraphicsDropShadowEffect, QComboBox,
-    QLineEdit
+    QLineEdit, QPushButton
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -47,6 +47,70 @@ class ClickableNoteLabel(QLabel):
         self.double_clicked.emit()
         # Don't call super() - we want to capture the double-click
         # and not have QLabel try to process it as text selection
+
+
+class CollapsibleMonthSection(QWidget):
+    """A collapsible section for a month's entries"""
+
+    def __init__(self, month_name: str, expanded: bool = True, parent=None):
+        super().__init__(parent)
+        self.month_name = month_name
+        self._expanded = expanded
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Clickable header
+        self.header = QLabel()
+        self._update_header_text()
+        self.header.setStyleSheet("""
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a1a2e;
+            background: transparent;
+            padding: 16px 0 8px 0;
+            border-bottom: 2px solid #e0e0e0;
+        """)
+        self.header.setCursor(Qt.PointingHandCursor)
+        self.header.mousePressEvent = self._toggle
+        layout.addWidget(self.header)
+
+        # Container for entries
+        self.entries_widget = QWidget()
+        self.entries_widget.setStyleSheet("background: transparent;")
+        self.entries_layout = QVBoxLayout(self.entries_widget)
+        self.entries_layout.setContentsMargins(0, 8, 0, 0)
+        self.entries_layout.setSpacing(12)
+        layout.addWidget(self.entries_widget)
+
+        # Set initial state
+        self.entries_widget.setVisible(self._expanded)
+
+    def _update_header_text(self):
+        """Update header with expand/collapse indicator"""
+        arrow = "▼" if self._expanded else "▶"
+        self.header.setText(f"{arrow}  {self.month_name}")
+
+    def _toggle(self, event=None):
+        """Toggle expanded state"""
+        self._expanded = not self._expanded
+        self.entries_widget.setVisible(self._expanded)
+        self._update_header_text()
+
+    def set_expanded(self, expanded: bool):
+        """Set expanded state"""
+        self._expanded = expanded
+        self.entries_widget.setVisible(self._expanded)
+        self._update_header_text()
+
+    def is_expanded(self) -> bool:
+        """Return current expanded state"""
+        return self._expanded
+
+    def add_entry(self, widget: QWidget):
+        """Add an entry widget to this month section"""
+        self.entries_layout.addWidget(widget)
 
 
 def add_shadow(widget, blur=15, offset=2, color=QColor(0, 0, 0, 25)):
@@ -198,6 +262,9 @@ class ChronologyView(QScrollArea):
         self.filter_type = ""
         self.search_text = ""
 
+        # Track month sections for expand/collapse
+        self.month_sections = []
+
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -267,6 +334,44 @@ class ChronologyView(QScrollArea):
         filter_layout.addLayout(search_layout)
 
         filter_layout.addStretch()
+
+        # Expand/Collapse buttons
+        expand_btn = QPushButton("Expand All")
+        expand_btn.setStyleSheet("""
+            QPushButton {
+                background: #f5f5f5;
+                color: #333333;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background: #e9ecef;
+            }
+        """)
+        expand_btn.setCursor(Qt.PointingHandCursor)
+        expand_btn.clicked.connect(self._expand_all)
+        filter_layout.addWidget(expand_btn)
+
+        collapse_btn = QPushButton("Collapse All")
+        collapse_btn.setStyleSheet("""
+            QPushButton {
+                background: #f5f5f5;
+                color: #333333;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background: #e9ecef;
+            }
+        """)
+        collapse_btn.setCursor(Qt.PointingHandCursor)
+        collapse_btn.clicked.connect(self._collapse_all)
+        filter_layout.addWidget(collapse_btn)
+
         self.main_layout.addWidget(filter_card)
 
         # Entries container - will be rebuilt on filter changes
@@ -319,8 +424,9 @@ class ChronologyView(QScrollArea):
         self.title_label.setText(f"Chronology ({len(self.filtered_entries)} entries)")
 
     def _render_entries(self):
-        """Render the filtered entries"""
-        # Clear existing entries
+        """Render the filtered entries with collapsible month sections"""
+        # Clear existing entries and month sections
+        self.month_sections = []
         while self.entries_layout.count():
             child = self.entries_layout.takeAt(0)
             if child.widget():
@@ -333,28 +439,26 @@ class ChronologyView(QScrollArea):
             self.entries_layout.addWidget(no_data)
             return
 
-        # Group by month
+        # Group by month using collapsible sections
         current_month = None
+        current_section = None
+        is_first_month = True
 
         for entry in self.filtered_entries:
             entry_month = entry['date'].strftime('%B %Y')
 
-            # Add month header if changed
+            # Create new month section if changed
             if entry_month != current_month:
                 current_month = entry_month
-                month_label = QLabel(entry_month)
-                month_label.setStyleSheet("""
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #1a1a2e;
-                    background: transparent;
-                    padding: 16px 0 8px 0;
-                    border-bottom: 2px solid #e0e0e0;
-                """)
-                self.entries_layout.addWidget(month_label)
+                # First month expanded, others collapsed
+                current_section = CollapsibleMonthSection(entry_month, expanded=is_first_month)
+                self.month_sections.append(current_section)
+                self.entries_layout.addWidget(current_section)
+                is_first_month = False
 
-            # Create entry card
-            self._create_entry_card(entry)
+            # Create entry card and add to current section
+            card = self._create_entry_card(entry)
+            current_section.add_entry(card)
 
     def _create_entry_card(self, entry: dict):
         """Create a card for a single chronology entry"""
@@ -467,7 +571,17 @@ class ChronologyView(QScrollArea):
 
         layout.addLayout(footer)
 
-        self.entries_layout.addWidget(card)
+        return card
+
+    def _expand_all(self):
+        """Expand all month sections"""
+        for section in self.month_sections:
+            section.set_expanded(True)
+
+    def _collapse_all(self):
+        """Collapse all month sections"""
+        for section in self.month_sections:
+            section.set_expanded(False)
 
     def refresh(self, project_data, budget):
         """Refresh with new data"""
