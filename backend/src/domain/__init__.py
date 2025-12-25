@@ -18,6 +18,20 @@ from src.domain.auth import (
     CurrentUser,
 )
 
+from src.domain.core import (
+    Project,
+    Item,
+    Workstream,
+    ItemNote,
+    ItemDependency,
+    ItemType,
+    Indicator,
+    ProjectResult,
+    ItemResult,
+    WorkstreamResult,
+    ItemNoteResult,
+)
+
 __all__ = [
     # Auth entities
     "User",
@@ -30,7 +44,21 @@ __all__ = [
     # Role enums
     "OrgRole",
     "ProjectRole",
-    # Results
+    # Auth results
     "AuthResult",
     "CurrentUser",
+    # Core entities
+    "Project",
+    "Item",
+    "Workstream",
+    "ItemNote",
+    "ItemDependency",
+    # Core enums
+    "ItemType",
+    "Indicator",
+    # Core results
+    "ProjectResult",
+    "ItemResult",
+    "WorkstreamResult",
+    "ItemNoteResult",
 ]

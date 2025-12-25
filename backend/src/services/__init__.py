@@ -154,6 +154,20 @@ class ServiceRegistry:
 # Singleton instance for import
 services = ServiceRegistry()
 
+# Import indicator calculation functions
+from src.services.indicator_service import (
+    calculate_indicator,
+    calculate_indicators_batch,
+    get_indicator_severity,
+    SOON_THRESHOLD_DAYS,
+    COMPLETED_RECENTLY_DAYS,
+)
+
+# Import business logic services
+from src.services.project_service import ProjectService
+from src.services.item_service import ItemService
+from src.services.workstream_service import WorkstreamService
+
 # Export commonly used items
 __all__ = [
     "services",
@@ -161,4 +175,14 @@ __all__ = [
     "BaseService",
     "AuroraService",
     "AuroraConfig",
+    # Indicator calculation
+    "calculate_indicator",
+    "calculate_indicators_batch",
+    "get_indicator_severity",
+    "SOON_THRESHOLD_DAYS",
+    "COMPLETED_RECENTLY_DAYS",
+    # Business logic services
+    "ProjectService",
+    "ItemService",
+    "WorkstreamService",
 ]
