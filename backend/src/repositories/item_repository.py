@@ -206,7 +206,7 @@ class ItemRepository:
             FROM items
             WHERE {where_clause}
             ORDER BY item_num ASC
-            LIMIT ${param_num - 1} OFFSET ${param_num}
+            LIMIT ${param_num} OFFSET ${param_num + 1}
             """,
             *params,
         )

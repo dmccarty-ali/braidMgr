@@ -132,7 +132,7 @@ async def list_items(
     Results ordered by item_num descending (newest first).
     """
     item_service = _get_item_service()
-    items, total = await item_service.list_items(
+    items = await item_service.list_items(
         project_id=project_id,
         item_type=type,
         workstream_id=workstream_id,
@@ -146,7 +146,7 @@ async def list_items(
 
     return ItemListResponse(
         items=[ItemResponse.model_validate(i) for i in items],
-        total=total,
+        total=len(items),
     )
 
 

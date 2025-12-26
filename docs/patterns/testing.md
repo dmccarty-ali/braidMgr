@@ -255,3 +255,100 @@ pytest tests/integration -v
 # With coverage
 pytest --cov=src --cov-report=html
 ```
+
+---
+
+## Frontend Testing
+
+### Unit Tests (Vitest)
+
+```bash
+cd frontend
+npm run test          # Watch mode
+npm run test -- --run # Single run
+```
+
+### E2E Tests (Playwright + BDD)
+
+E2E tests use Playwright with Gherkin/BDD syntax via `playwright-bdd`:
+
+```bash
+npm run test:e2e      # Run all e2e tests
+```
+
+**Test structure**:
+- `e2e/features/*.feature` - Gherkin feature files
+- `e2e/steps/*.ts` - Step definitions
+- `.features-gen/` - Generated test files (auto-created)
+
+**Configuration**: `playwright.config.ts`
+- Uses port 5174 (not 5173) to avoid conflicts
+- WebServer auto-starts frontend before tests
+- Tests run in Chromium by default
+
+---
+
+## Demo Recording
+
+Automated video recording for demo/marketing purposes.
+
+### Demo User
+
+| Field | Value |
+|-------|-------|
+| Email | `demo@braidmgr.com` |
+| Password | `demo123` |
+| Purpose | Demo recordings, testing |
+
+### Running Demo Recording
+
+```bash
+cd frontend
+npx playwright test tests/demo-walkthrough.spec.ts --project=demo-recording
+```
+
+**Output**: Video saved to `test-results/demo-walkthrough-.../video.webm`
+
+### Playwright Demo Project
+
+Configured in `playwright.config.ts`:
+
+```typescript
+{
+  name: "demo-recording",
+  testDir: "./tests",
+  testMatch: /demo-walkthrough\.spec\.ts/,
+  use: {
+    viewport: { width: 1920, height: 1080 },
+    video: { mode: "on", size: { width: 1920, height: 1080 } },
+    screenshot: "on",
+    trace: "on",
+    launchOptions: { slowMo: 50 },
+    actionTimeout: 60000,
+  },
+  timeout: 300000, // 5 minutes
+}
+```
+
+### Demo Test Structure
+
+The demo walkthrough (`tests/demo-walkthrough.spec.ts`) includes:
+
+1. **Login sequence** with narration overlay
+2. **Project selection**
+3. **Dashboard overview** with pointing callouts
+4. **Items table** with filter demonstrations
+5. **Active items** severity grouping
+6. **Timeline view** with zoom interaction
+7. **Farewell screen**
+
+**Narration system**: Uses `page.evaluate()` to inject styled overlay boxes with titles and subtitles that appear during the recording.
+
+### Test Data Requirements
+
+For demo recordings to show data:
+- Demo user must exist with org membership and project role
+- Project must have items with various indicators
+- Project dates must be current (items show based on date calculations)
+
+See `backend/scripts/` for data setup or use the YAML import script.

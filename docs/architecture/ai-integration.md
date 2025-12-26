@@ -1,75 +1,172 @@
 # AI Integration
 
 *Parent: [ARCHITECTURE.md](../ARCHITECTURE.md)*
+*Last updated: 2025-12-26*
 
 Claude API integration for natural language project queries.
 
 **Key Concepts**:
-- Project context injected into system prompt
-- RBAC enforced - AI only sees permitted data
-- Default scope is current project
-- Users can expand scope by asking
+- System prompt enforcement for governance (restricts to project topics)
+- WebSocket streaming for real-time responses
+- REST fallback for compatibility
+- Usage logging for audit
+- Demo mode when no API key configured
 
 ---
 
-## Claude Service
+## Current Implementation
+
+### Chat Service
+
+Located at `backend/src/services/chat_service.py`:
 
 ```python
-# src/services/claude_service.py
+class ChatService:
+    """
+    Service for AI chat functionality.
 
-import anthropic
-from dataclasses import dataclass
+    Supports two modes:
+    - API mode (default): Uses Anthropic Python SDK
+    - CLI mode: Spawns Claude CLI subprocess (for dev with subscription)
+    """
 
-@dataclass
-class ProjectContext:
-    """Context data for AI prompts."""
-    project: Project
-    items: list[Item]
-    budget_metrics: BudgetMetrics
-    summary: str  # Formatted for AI
+    async def send_message(self, user_message: str, ...) -> ChatMessage:
+        """Send message and get response."""
 
+    async def stream_message(self, user_message: str, ...) -> AsyncGenerator[str, None]:
+        """Stream response chunk by chunk."""
+```
 
-class ClaudeService(BaseService):
-    """Integration with Claude API."""
+### System Prompt (Governance)
 
-    def __init__(self, config: ClaudeConfig):
-        super().__init__(config)
-        self.client = anthropic.Anthropic(api_key=config.api_key)
-        self.model = "claude-sonnet-4-20250514"
+The system prompt restricts Claude to project management topics:
 
-    async def send_message(
-        self,
-        messages: list[dict],
-        context: ProjectContext
-    ) -> str:
-        """Send message with project context."""
-        system_prompt = self._build_system_prompt(context)
+```python
+SYSTEM_PROMPT = """You are Claude, an AI assistant embedded in braidMgr...
 
-        response = await asyncio.to_thread(
-            self.client.messages.create,
-            model=self.model,
-            system=system_prompt,
-            messages=messages,
-            max_tokens=4096
-        )
+Your role is to help users with:
+- Understanding their project status and items
+- Analyzing risks, issues, and action items
+- Providing project management guidance
+- Answering questions about RAID log best practices
 
-        return response.content[0].text
-
-    def _build_system_prompt(self, context: ProjectContext) -> str:
-        """Build system prompt with project data."""
-        return f"""You are an AI assistant for the braidMgr project management application.
-You have access to the following project data:
-
-PROJECT: {context.project.name}
-CLIENT: {context.project.client_name or 'N/A'}
-DATES: {context.project.project_start} to {context.project.project_end}
-
-{context.summary}
-
-Answer questions about this project data. Be concise and specific.
-Reference item numbers (e.g., "Item #42") when discussing specific items.
-If asked about data outside this project, explain that you only have access to the current project.
+Guidelines:
+1. Stay focused on project management topics
+2. If asked about unrelated topics (personal shopping, entertainment, etc.),
+   politely redirect to project-related assistance
+...
 """
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat/message` | POST | Send message, get response |
+| `/api/chat/ws` | WebSocket | Streaming chat connection |
+| `/api/chat/history` | GET | Get conversation history |
+| `/api/chat/history` | DELETE | Clear conversation |
+
+### WebSocket Protocol
+
+```typescript
+// Client -> Server
+{ "type": "message", "content": "user message" }
+
+// Server -> Client (streaming)
+{ "type": "stream", "content": "chunk" }
+
+// Server -> Client (complete)
+{ "type": "message", "id": "...", "content": "full response" }
+
+// Server -> Client (error)
+{ "type": "error", "message": "error description" }
+```
+
+---
+
+## Frontend Components
+
+Located at `frontend/src/components/features/chat/`:
+
+| Component | Description |
+|-----------|-------------|
+| ChatContext | Shared state provider for drawer and command palette |
+| ChatDrawer | Floating button (bottom-right) + slide-out panel |
+| CommandPalette | Cmd+K interface with search and chat modes |
+| ChatMessage | Message bubble with timestamp |
+| ChatInput | Textarea with send button |
+
+### Usage
+
+```tsx
+// App.tsx - wrapped in ProjectLayout
+<ChatProvider>
+  <AppLayout>...</AppLayout>
+  <ChatDrawer />
+  <CommandPalette />
+</ChatProvider>
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `CHAT_MODE` | `cli` (local dev) or `api` (cloud/production) |
+| `ANTHROPIC_API_KEY` | Required for `api` mode only |
+
+### Local Development vs Cloud
+
+| Environment | CHAT_MODE | How It Works |
+|-------------|-----------|--------------|
+| **Local dev** | `cli` | Uses `claude` CLI - leverages your Claude subscription |
+| **Cloud/Production** | `api` | Uses Anthropic API with `ANTHROPIC_API_KEY` |
+| **Docker** | `api` | CLI not available in container; use API or demo mode |
+
+### Setup for Local Development
+
+Copy the example environment file:
+
+```bash
+cd backend
+cp .env.example .env
+source .env
+```
+
+The `.env.example` file includes `CHAT_MODE=cli` for local development.
+
+Or set inline when starting the backend:
+
+```bash
+CHAT_MODE=cli uvicorn src.api.main:app --reload
+```
+
+### Config in `config.yaml`
+
+```yaml
+integrations:
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY:-}
+    model: claude-3-5-sonnet-20241022
+```
+
+---
+
+## Demo Mode
+
+When no API key is configured, the chat service returns canned responses:
+
+```python
+def _demo_response(self, user_message: str) -> str:
+    """Generate demo response when no API key configured."""
+    if "risk" in user_message.lower():
+        return "Risks in braidMgr are potential issues..."
+    # ... other demo responses
+    return "[Demo Mode - No API key configured]..."
 ```
 
 ---

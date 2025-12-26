@@ -93,6 +93,8 @@ class AuthService:
         """
         Register a new user account.
 
+        Creates the user, a personal workspace organization, and org membership.
+
         Args:
             email: User email (must be unique)
             password: Plain text password (will be hashed)
@@ -128,14 +130,19 @@ class AuthService:
             email_verified=False,
         )
 
-        # Generate tokens
+        # Auto-create a personal workspace organization for new users
+        org_id, org_role = await self._create_personal_workspace(user.id, name)
+
+        # Generate tokens with org context
         access_token, refresh_token = await self._create_tokens(
             user,
+            org_id=org_id,
+            org_role=org_role,
             ip_address=ip_address,
             user_agent=user_agent,
         )
 
-        logger.info("user_registered", user_id=str(user.id), email=email)
+        logger.info("user_registered", user_id=str(user.id), email=email, org_id=org_id)
 
         return AuthResult(
             success=True,
@@ -209,9 +216,28 @@ class AuthService:
             user_agent=user_agent,
         )
 
+        # Look up user's organization membership
+        # If user has exactly one org, include it in the token for convenience
+        org_id = None
+        org_role = None
+        org_membership = await self._aurora.fetch_one(
+            """
+            SELECT organization_id, org_role
+            FROM user_org_memberships
+            WHERE user_id = $1
+            LIMIT 1
+            """,
+            user.id,
+        )
+        if org_membership:
+            org_id = str(org_membership["organization_id"])
+            org_role = org_membership["org_role"]
+
         # Generate tokens
         access_token, refresh_token = await self._create_tokens(
             user,
+            org_id=org_id,
+            org_role=org_role,
             ip_address=ip_address,
             user_agent=user_agent,
         )
@@ -510,6 +536,66 @@ class AuthService:
     # =========================================================================
     # HELPERS
     # =========================================================================
+
+    async def _create_personal_workspace(
+        self,
+        user_id: UUID,
+        user_name: str,
+    ) -> Tuple[str, str]:
+        """
+        Create a personal workspace organization for a new user.
+
+        Every new user gets their own organization where they are the owner.
+        This allows them to create projects immediately after registration.
+
+        Args:
+            user_id: The new user's UUID
+            user_name: User's display name (used in org name)
+
+        Returns:
+            Tuple of (org_id as string, org_role as string)
+        """
+        import re
+        from uuid import uuid4
+
+        # Generate a unique slug from user name
+        # Convert to lowercase, replace spaces with hyphens, remove special chars
+        base_slug = re.sub(r"[^a-z0-9-]", "", user_name.lower().replace(" ", "-"))
+        if not base_slug:
+            base_slug = "workspace"
+        # Add unique suffix to avoid collisions
+        unique_slug = f"{base_slug}-{uuid4().hex[:8]}"
+
+        # Create the organization
+        org_result = await self._aurora.execute_returning(
+            """
+            INSERT INTO organizations (name, slug)
+            VALUES ($1, $2)
+            RETURNING id
+            """,
+            f"{user_name}'s Workspace",
+            unique_slug,
+        )
+        org_id = org_result["id"]
+
+        # Create owner membership
+        await self._aurora.execute_write(
+            """
+            INSERT INTO user_org_memberships (user_id, organization_id, org_role)
+            VALUES ($1, $2, 'owner')
+            """,
+            user_id,
+            org_id,
+        )
+
+        logger.info(
+            "personal_workspace_created",
+            user_id=str(user_id),
+            org_id=str(org_id),
+            slug=unique_slug,
+        )
+
+        return str(org_id), "owner"
 
     async def _create_tokens(
         self,

@@ -1,6 +1,6 @@
 # braidMgr Architecture
 
-*Last updated: 2024-12-24*
+*Last updated: 2025-12-26*
 
 This document describes the system architecture for braidMgr v2, a multi-tenant, multi-user RAID log management application with AI chat capabilities.
 
@@ -19,6 +19,7 @@ This document describes the system architecture for braidMgr v2, a multi-tenant,
 | [ai-integration.md](architecture/ai-integration.md) | Claude API integration |
 | [frontend.md](architecture/frontend.md) | React + Vite frontend architecture |
 | [deployment.md](architecture/deployment.md) | AWS infrastructure and CI/CD |
+| [TEST_PLAN.md](TEST_PLAN.md) | Testing strategy, test users, demo recording |
 
 ---
 

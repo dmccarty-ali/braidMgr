@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import get_config
 from src.services import services
-from src.api.routes import health, auth, projects, items, workstreams
+from src.api.routes import health, auth, projects, items, workstreams, chat, activity
 from src.api.middleware import (
     CorrelationIdMiddleware,
     RequestLoggingMiddleware,
@@ -107,3 +107,5 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(items.router, prefix="/api/v1")
 app.include_router(workstreams.router, prefix="/api/v1")
+app.include_router(activity.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api")

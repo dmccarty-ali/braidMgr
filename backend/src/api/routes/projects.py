@@ -121,7 +121,7 @@ async def list_projects(user: RequireAuth):
         )
 
     project_service = _get_project_service()
-    projects = await project_service.list_projects(
+    projects = await project_service.list_projects_for_user(
         user_id=user.id,
         org_id=user.org_id,
     )

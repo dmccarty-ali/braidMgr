@@ -31,7 +31,8 @@ services:
       POSTGRES_DB: braidmgr_dev
     ports:
       # Expose on host for direct access (psql, DBeaver, etc.)
-      - "5432:5432"
+      # Using 5434 to avoid conflict with other postgres instances
+      - "5434:5432"
     volumes:
       # Persist data between restarts
       - postgres_data:/var/lib/postgresql/data
@@ -64,6 +65,11 @@ services:
       # Application settings
       ENVIRONMENT: development
       LOG_LEVEL: DEBUG
+      # Chat/AI configuration
+      # In Docker, use 'api' mode since Claude CLI isn't available in container
+      # Set ANTHROPIC_API_KEY to enable AI chat, otherwise falls back to demo mode
+      CHAT_MODE: api
+      # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       # API server port
       - "8000:8000"
