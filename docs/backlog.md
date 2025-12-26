@@ -1,6 +1,6 @@
 # braidMgr Backlog
 
-*Last updated: 2024-12-24*
+*Last updated: 2025-12-26*
 
 This document tracks technical decisions, priorities, and pending work items outside the main user story sequences.
 
@@ -10,48 +10,52 @@ This document tracks technical decisions, priorities, and pending work items out
 
 ### INFRA-001: MkDocs Documentation Site
 
-**Status**: Pending
+**Status**: Complete
 **Priority**: P1
+**Completed**: 2025-12-26
 
-Create a documentation site using MkDocs Material theme (similar to ali-ai-ingestion-engine).
+Created documentation site using MkDocs Material theme.
 
-**Tasks**:
-- [ ] Create mkdocs.yml configuration
-- [ ] Set up docs/ folder structure for MkDocs
-- [ ] Create index.md home page
-- [ ] Create navigation structure:
-  - Overview (value proposition, roadmap)
-  - **User Guide** (getting started, features, workflows)
-  - **FAQ / Knowledge Base** (common questions, troubleshooting)
-  - Architecture (system design, tech stack)
-  - Data Model (entities, ERD)
-  - API Reference (endpoints, schemas)
-  - Development (setup, contributing)
-  - Operations (deployment, troubleshooting)
+**Completed**:
+- [x] Create mkdocs.yml configuration
+- [x] Navigation structure for all existing docs
+- [x] Light/dark mode toggle
+- [x] Code highlighting with copy buttons
+- [x] Search plugin
+
+**To build/serve**:
+```bash
+/Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m mkdocs serve
+```
+
+**Future enhancements** (optional):
 - [ ] Add mermaid diagram support
-- [ ] Configure search and tags plugins
+- [ ] Create User Guide section
+- [ ] Create FAQ / Knowledge Base
 - [ ] Add custom CSS for branding
-
-**Reference**: /Users/donmccarty/ali-ai-ingestion-engine/mkdocs.yml
 
 ---
 
 ### INFRA-002: Cloudflare Pages Hosting
 
-**Status**: Pending
+**Status**: Complete
 **Priority**: P1
 **Depends on**: INFRA-001
+**Completed**: 2025-12-26
 
 Deploy documentation site to Cloudflare Pages.
 
-**Tasks**:
-- [ ] Create Cloudflare Pages project
-- [ ] Connect to GitHub repository
-- [ ] Configure build command (mkdocs build)
-- [ ] Set output directory (site/)
-- [ ] Configure custom domain (optional)
-- [ ] Set up automatic deployments on push to main
-- [ ] Verify SSL certificate
+**Live URL**: https://braidmgr-docs.pages.dev/
+
+**Completed**:
+- [x] Create Cloudflare Pages project (wrangler pages project create)
+- [x] Initial deployment (wrangler pages deploy site)
+- [x] Create deployment guide (docs/deployment/cloudflare-pages.md)
+- [x] SSL certificate (automatic)
+
+**Pending** (optional):
+- [ ] Connect to GitHub for automatic deployments
+- [ ] Configure custom domain
 
 ---
 
@@ -213,8 +217,7 @@ None currently.
 
 | ID | Description | Status |
 |----|-------------|--------|
-| INFRA-001 | MkDocs documentation site | Pending |
-| INFRA-002 | Cloudflare Pages hosting | Pending |
+| - | None | - |
 
 ---
 
@@ -234,4 +237,7 @@ None currently.
 
 ## Resolved
 
-None yet.
+| ID | Description | Completed |
+|----|-------------|-----------|
+| INFRA-001 | MkDocs documentation site | 2025-12-26 |
+| INFRA-002 | Cloudflare Pages hosting | 2025-12-26 |

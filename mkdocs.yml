@@ -9,7 +9,7 @@
 site_name: BRAID Manager
 site_description: Multi-tenant Budget & RAID log management
 site_author: Don McCarty
-site_url: https://donmccarty.github.io/braidMgr/
+site_url: https://braidmgr-docs.pages.dev/
 
 # Repository info (shows edit links)
 repo_name: braidMgr
@@ -133,4 +133,6 @@ nav:
   - Testing:
     - Test Plan: TEST_PLAN.md
     - Testing Patterns: patterns/testing.md
+  - Deployment:
+    - Cloudflare Pages: deployment/cloudflare-pages.md
   - Backlog: backlog.md
