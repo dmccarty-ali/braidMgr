@@ -30,7 +30,7 @@ export function SeverityGroup({
   const displayName = indicator || "No Status"
 
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="border rounded-lg overflow-hidden" data-testid="severity-group">
       {/* Header */}
       <button
         className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"

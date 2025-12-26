@@ -42,6 +42,7 @@ export function ItemFilters({
           placeholder="Search items..."
           value={filters.search}
           onChange={(e) => onFilterChange("search", e.target.value)}
+          data-testid="search-input"
         />
       </div>
 
@@ -52,7 +53,7 @@ export function ItemFilters({
           onFilterChange("type", value === "all" ? null : (value as typeof filters.type))
         }
       >
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-[140px]" data-testid="type-filter">
           <SelectValue placeholder="All Types" />
         </SelectTrigger>
         <SelectContent>
@@ -92,7 +93,7 @@ export function ItemFilters({
           onFilterChange("indicator", value === "all" ? null : (value as typeof filters.indicator))
         }
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className="w-[160px]" data-testid="indicator-filter">
           <SelectValue placeholder="All Statuses" />
         </SelectTrigger>
         <SelectContent>

@@ -28,7 +28,9 @@ const pageUrls: Record<string, string> = {
   home: "/",
   projects: "/projects",
   dashboard: `/projects/${TEST_PROJECT_ID}/dashboard`,
+  items: `/projects/${TEST_PROJECT_ID}/items`,
   "all items": `/projects/${TEST_PROJECT_ID}/items`,
+  active: `/projects/${TEST_PROJECT_ID}/active`,
   "active items": `/projects/${TEST_PROJECT_ID}/active`,
   timeline: `/projects/${TEST_PROJECT_ID}/timeline`,
   chronology: `/projects/${TEST_PROJECT_ID}/chronology`,
@@ -57,18 +59,36 @@ Given("I am on the {string} page", async ({ page }, pageName: string) => {
       // Extract page name from URL (e.g., "dashboard", "items")
       const pagePart = targetUrl.split("/").pop()
       if (pagePart) {
-        // Try to find and click navigation link
-        const navLink = page.getByRole("link", { name: new RegExp(pagePart, "i") })
-        if (await navLink.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await navLink.click()
-          await page.waitForLoadState("networkidle")
-          return
+        // Wait for page to fully load before looking for nav links
+        await page.waitForLoadState("domcontentloaded")
+        await page.waitForLoadState("networkidle")
+
+        // Map URL parts to link names (sidebar uses full names)
+        const linkNameMap: Record<string, string> = {
+          items: "All Items",
+          active: "Active Items",
+          dashboard: "Dashboard",
+          timeline: "Timeline",
+          chronology: "Chronology",
+          help: "Help",
         }
+        const linkName = linkNameMap[pagePart] || pagePart
+
+        // Wait for sidebar to be visible (it contains the nav links)
+        const sidebar = page.locator('[data-testid="sidebar"], aside, nav').first()
+        await sidebar.waitFor({ state: "visible", timeout: 5000 })
+
+        // Find and click navigation link - use contains match for flexibility with icons
+        const navLink = page.getByRole("link", { name: new RegExp(linkName) })
+        await navLink.waitFor({ state: "visible", timeout: 5000 })
+        await navLink.click()
+        await page.waitForLoadState("networkidle")
+        return
       }
     }
   }
 
-  // Fallback to standard navigation
+  // Fallback to standard navigation (only for non-authenticated pages)
   await page.goto(targetUrl)
 })
 
