@@ -89,6 +89,21 @@ Set up continuous integration and deployment.
 
 ---
 
+### INFRA-004: GitHub Secrets for Docs Auto-Deploy
+
+**Status**: Pending
+**Priority**: P3
+
+Add secrets to GitHub repo for automatic docs deployment.
+
+**Secrets needed** (Settings → Secrets → Actions):
+- `CLOUDFLARE_API_TOKEN` - API token with Pages permissions
+- `CLOUDFLARE_ACCOUNT_ID` - `88e50c4ee658ed559d5153f0b2f7e77b`
+
+**Note**: Until added, deploy docs manually with `wrangler pages deploy site --project-name braidmgr-docs`
+
+---
+
 ## Technical Decisions
 
 ### DECISION-001: Database-per-Org Multi-Tenancy
@@ -244,7 +259,9 @@ None currently.
 
 ## P3: Low Priority
 
-None currently.
+| ID | Description | Status |
+|----|-------------|--------|
+| INFRA-004 | Add GitHub secrets for docs auto-deploy | Pending |
 
 ---
 
